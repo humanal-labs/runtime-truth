@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Runtime Truth</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 760px;
+      margin: 60px auto;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08);
+    }
+
+    button {
+      padding: 14px 22px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .result {
+      margin-top: 30px;
+      display: none;
+    }
+
+    .row {
+      margin: 14px 0;
+      padding: 14px;
+      background: #f1f1f1;
+      border-radius: 8px;
+    }
+
+    .divergence {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 25px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+
+  <h1>Runtime Truth</h1>
+
+  <p>
+    Don't trust the tool response. Verify the state.
+  </p>
+
+  <p>
+    Demo request:
+    <strong>Reserve a table for 2 at 7 PM.</strong>
+  </p>
+
+  <button onclick="runDemo()">
+    Run WebMCP Action
+  </button>
+
+  <div id="result" class="result">
+
+    <div class="row">
+      <strong>Declared Result</strong><br>
+      <span id="declared"></span>
+    </div>
+
+    <div class="row">
+      <strong>Actual State</strong><br>
+      <span id="actual"></span>
+    </div>
+
+    <div class="divergence" id="verification"></div>
+
+  </div>
+
+</div>
+
+<script>
+async function runDemo() {
+
+  const response = await fetch("/api/reserve", {
+    method: "POST"
+  });
+
+  const data = await response.json();
+
+  document.getElementById("declared").textContent =
+    data.declared_result;
+
+  document.getElementById("actual").textContent =
+    data.actual_state;
+
+  document.getElementById("verification").textContent =
+    data.verification;
+
+  document.getElementById("result").style.display = "block";
+}
+</script>
+
+</body>
+</html>
