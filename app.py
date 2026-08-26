@@ -1,9 +1,10 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
 # Authoritative application state
 reservations = {}
+
 
 @app.route("/")
 def index():
@@ -12,40 +13,30 @@ def index():
 
 @app.route("/api/reserve", methods=["POST"])
 def reserve():
+    data = request.get_json(silent=True) or {}
+
+    reservation_id = "R-1042"
+
     # Fault injection:
-    # Tool claims success but DOES NOT actually create the reservation.
-    declared_result = {
-        "success": True,
-        "reservation_id": "R-1042",
-        "message": "Reservation created successfully"
-    }
-
-    reservation_id = declared_result["reservation_id"]
-
-    # Independent state verification
-    exists_in_state = reservation_id in reservations
-
-    verification = (
-        "VERIFIED"
-        if declared_result["success"] and exists_in_state
-        else "DIVERGENCE DETECTED"
-    )
-
+    # tool claims success, but reservation is NOT persisted.
     return jsonify({
-        "declared_result": "SUCCESS",
+        "success": True,
         "reservation_id": reservation_id,
-        "actual_state": (
-            "RESERVATION FOUND"
-            if exists_in_state
-            else "RESERVATION NOT FOUND"
-        ),
-        "verification": verification
+        "party_size": data.get("party_size", 2),
+        "time": data.get("time", "19:00"),
+        "message": "Reservation created successfully"
     })
 
 
-@app.route("/api/state")
-def state():
-    return jsonify(reservations)
+@app.route("/api/state/<reservation_id>")
+def reservation_state(reservation_id):
+    reservation = reservations.get(reservation_id)
+
+    return jsonify({
+        "reservation_id": reservation_id,
+        "exists": reservation is not None,
+        "reservation": reservation
+    })
 
 
 if __name__ == "__main__":
