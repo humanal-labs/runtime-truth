@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>Runtime Truth</title>
 
   <style>
@@ -25,6 +26,11 @@
       padding: 14px 22px;
       font-size: 16px;
       cursor: pointer;
+    }
+
+    .status {
+      margin: 15px 0 25px;
+      font-size: 14px;
     }
 
     .result {
@@ -57,13 +63,17 @@
     Don't trust the tool response. Verify the state.
   </p>
 
+  <div class="status" id="webmcp-status">
+    Checking WebMCP support...
+  </div>
+
   <p>
     Demo request:
     <strong>Reserve a table for 2 at 7 PM.</strong>
   </p>
 
-  <button onclick="runDemo()">
-    Run WebMCP Action
+  <button onclick="runHumanDemo()">
+    Run Demo
   </button>
 
   <div id="result" class="result">
@@ -85,25 +95,139 @@
 </div>
 
 <script>
-async function runDemo() {
 
-  const response = await fetch("/api/reserve", {
-    method: "POST"
+async function verifiedReservation({ party_size = 2, time = "19:00" } = {}) {
+
+  // 1. Execute the action.
+  const actionResponse = await fetch("/api/reserve", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      party_size,
+      time
+    })
   });
 
-  const data = await response.json();
+  const declared = await actionResponse.json();
 
-  document.getElementById("declared").textContent =
-    data.declared_result;
+  // 2. Independently read authoritative post-action state.
+  const stateResponse = await fetch(
+    `/api/state/${declared.reservation_id}`
+  );
 
-  document.getElementById("actual").textContent =
-    data.actual_state;
+  const state = await stateResponse.json();
 
-  document.getElementById("verification").textContent =
-    data.verification;
+  // 3. Compare declared result with actual state.
+  const divergence =
+    declared.success === true &&
+    state.exists === false;
 
+  const verification =
+    divergence
+      ? "DIVERGENCE DETECTED"
+      : "VERIFIED";
+
+  updateUI(
+    declared.success ? "SUCCESS" : "FAILURE",
+    state.exists ? "RESERVATION FOUND" : "RESERVATION NOT FOUND",
+    verification
+  );
+
+  return {
+    content: [
+      {
+        type: "text",
+        text:
+          `Declared result: ${declared.success ? "SUCCESS" : "FAILURE"}\n` +
+          `Reservation ID: ${declared.reservation_id}\n` +
+          `Authoritative state: ${state.exists ? "FOUND" : "NOT FOUND"}\n` +
+          `Verification: ${verification}`
+      }
+    ]
+  };
+}
+
+
+function updateUI(declared, actual, verification) {
+
+  document.getElementById("declared").textContent = declared;
+  document.getElementById("actual").textContent = actual;
+  document.getElementById("verification").textContent = verification;
   document.getElementById("result").style.display = "block";
 }
+
+
+async function runHumanDemo() {
+  await verifiedReservation({
+    party_size: 2,
+    time: "19:00"
+  });
+}
+
+
+async function registerWebMCP() {
+
+  const status = document.getElementById("webmcp-status");
+
+  if (!document.modelContext) {
+    status.textContent =
+      "WebMCP unavailable in this browser. Human demo remains available.";
+    return;
+  }
+
+  try {
+
+    await document.modelContext.registerTool({
+
+      name: "reserve-table",
+
+      description:
+        "Reserve a restaurant table and independently verify that the reservation actually exists in authoritative application state.",
+
+      inputSchema: {
+        type: "object",
+
+        properties: {
+          party_size: {
+            type: "number",
+            description: "Number of guests"
+          },
+
+          time: {
+            type: "string",
+            description: "Reservation time, for example 19:00"
+          }
+        },
+
+        required: ["party_size", "time"]
+      },
+
+      async execute({ party_size, time }) {
+
+        return await verifiedReservation({
+          party_size,
+          time
+        });
+      }
+    });
+
+    status.textContent =
+      "WebMCP tool registered: reserve-table ✓";
+
+  } catch (error) {
+
+    console.error(error);
+
+    status.textContent =
+      "WebMCP registration failed in this browser.";
+  }
+}
+
+
+registerWebMCP();
+
 </script>
 
 </body>
