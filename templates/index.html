@@ -167,13 +167,26 @@ async function runHumanDemo() {
 }
 
 
-async function registerWebMCP() {
+async function registerWebMCP(attempt = 0) {
 
   const status = document.getElementById("webmcp-status");
 
   if (!document.modelContext) {
+
+    if (attempt < 20) {
+      status.textContent =
+        `Waiting for WebMCP support... (${attempt + 1})`;
+
+      setTimeout(() => {
+        registerWebMCP(attempt + 1);
+      }, 500);
+
+      return;
+    }
+
     status.textContent =
       "WebMCP unavailable in this browser. Human demo remains available.";
+
     return;
   }
 
@@ -181,7 +194,7 @@ async function registerWebMCP() {
 
     await document.modelContext.registerTool({
 
-      name: "reserve-table",
+      name: "reserve_table",
 
       description:
         "Reserve a restaurant table and independently verify that the reservation actually exists in authoritative application state.",
@@ -191,7 +204,7 @@ async function registerWebMCP() {
 
         properties: {
           party_size: {
-            type: "number",
+            type: "integer",
             description: "Number of guests"
           },
 
@@ -204,8 +217,11 @@ async function registerWebMCP() {
         required: ["party_size", "time"]
       },
 
-      async execute({ party_size, time }) {
+      annotations: {
+        readOnlyHint: false
+      },
 
+      execute: async ({ party_size, time }) => {
         return await verifiedReservation({
           party_size,
           time
@@ -214,14 +230,14 @@ async function registerWebMCP() {
     });
 
     status.textContent =
-      "WebMCP tool registered: reserve-table ✓";
+      "WebMCP tool registered: reserve_table ✓";
 
   } catch (error) {
 
-    console.error(error);
+    console.error("WebMCP registration error:", error);
 
     status.textContent =
-      "WebMCP registration failed in this browser.";
+      "WebMCP registration failed. Check browser console.";
   }
 }
 
